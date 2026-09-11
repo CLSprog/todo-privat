@@ -6,9 +6,12 @@
 <meta name="theme-color" content="#2f6f4e">
 <title>P09 ToDo</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%232f6f4e'/%3E%3Cpath d='M25 52l16 16 34-36' stroke='%23fff' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232f6f4e'/%3E%3Cpath d='M25 52l16 16 34-36' stroke='%23fff' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="P09 ToDo">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{
   --bg:#f4f5f3; --card:#ffffff; --text:#1c2320; --dim:#6b7570; --line:#dfe3df;
@@ -104,6 +107,40 @@ header .badge{font-size:13px;color:var(--dim);font-weight:400}
 .dringwahl button[data-w="Mittel"].gewaehlt{color:var(--mittel)}
 .dringwahl button[data-w="Niedrig"].gewaehlt{color:var(--niedrig)}
 
+/* ---------- Terminauswahl ---------- */
+.termin-knoepfe{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.termin-knoepfe button{
+  font-family:inherit;font-size:14.5px;padding:8px 12px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line);background:var(--bg);color:var(--dim);white-space:nowrap;
+}
+.termin-knoepfe button.gewaehlt{
+  border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;
+}
+.termin-knoepfe button.loeschen{border:none;background:none;color:var(--dim);font-size:17px;padding:8px 6px}
+.termin-anzeige{
+  font-size:14.5px;color:var(--accent);padding:8px 2px 0;
+}
+.kalender{
+  margin-top:9px;border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--bg);
+}
+.kal-kopf{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.kal-kopf span{font-size:15px;font-weight:600}
+.kal-kopf button{
+  border:none;background:none;color:var(--dim);font-family:inherit;font-size:19px;
+  cursor:pointer;padding:2px 11px;border-radius:7px;line-height:1;
+}
+.kal-kopf button:hover{background:var(--card);color:var(--text)}
+.kal-raster{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.kal-raster .wt{font-size:11.5px;color:var(--dim);text-align:center;padding:3px 0;text-transform:uppercase}
+.kal-raster button{
+  border:none;background:none;font-family:inherit;font-size:14.5px;color:var(--text);
+  aspect-ratio:1;border-radius:8px;cursor:pointer;padding:0;
+}
+.kal-raster button:hover{background:var(--card)}
+.kal-raster button.heute{color:var(--accent);font-weight:700}
+.kal-raster button.aktiv{background:var(--accent);color:#fff;font-weight:600}
+.kal-raster button.leer{visibility:hidden;cursor:default}
+
 /* ---------- Filter ---------- */
 .filter{display:flex;gap:7px;margin:18px 0 10px;flex-wrap:wrap}
 .filter button{
@@ -183,7 +220,14 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
 <div class="capture">
   <div class="capture-row">
     <textarea id="eingabe" rows="1" placeholder="Was ist zu tun?" autocomplete="off"></textarea>
-    <button class="mic" id="btnMic" title="Diktieren">🎤</button>
+    <button class="mic" id="btnMic" title="Diktieren" aria-label="Diktieren">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+           stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="2.5" width="6" height="11" rx="3"/>
+        <path d="M5.5 10.5v.5a6.5 6.5 0 0 0 13 0v-.5"/>
+        <line x1="12" y1="18" x2="12" y2="21.5"/>
+      </svg>
+    </button>
     <button class="add" id="btnAdd" title="Aufgabe anlegen" disabled>＋</button>
   </div>
   <button class="mehr" id="btnMehr">Mehr Felder ▾</button>
@@ -199,8 +243,13 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
       </div>
     </div>
     <div class="feldzeile">
-      <div class="feld"><label>Zieldatum</label><input type="date" id="fZiel"></div>
-      <div class="feld"><label>Link</label><input type="url" id="fLink" placeholder="Mail, Dokument …" autocomplete="off"></div>
+      <div class="feld" style="flex:1 1 100%">
+        <label>Zieldatum</label>
+        <div class="termin" id="tErfassung"></div>
+      </div>
+    </div>
+    <div class="feldzeile">
+      <div class="feld" style="flex:1 1 100%"><label>Link</label><input type="url" id="fLink" placeholder="Mail, Dokument …" autocomplete="off"></div>
     </div>
     <div class="feldzeile">
       <div class="feld" style="flex:1 1 100%"><label>Notiz</label><textarea id="fNotiz" placeholder="Optional, wenn mehr dazu gehört"></textarea></div>
@@ -233,7 +282,12 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
       <div class="feld"><label>Status</label><select id="eStatus"><option>Offen</option><option>Warten</option><option>Erledigt</option></select></div>
     </div>
     <div class="feldzeile">
-      <div class="feld"><label>Zieldatum</label><input type="date" id="eZiel"></div>
+      <div class="feld" style="flex:1 1 100%">
+        <label>Zieldatum</label>
+        <div class="termin" id="tEdit"></div>
+      </div>
+    </div>
+    <div class="feldzeile">
       <div class="feld"><label>Startdatum</label><input type="date" id="eStart"></div>
     </div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Link</label><input type="url" id="eLink"></div></div>
@@ -328,7 +382,13 @@ function leeresModell(){
 
 /* ---------- Hilfen ---------- */
 const $ = s => document.querySelector(s);
-const heute = () => new Date().toISOString().slice(0,10);
+/* Datum immer in Ortszeit bilden — toISOString() waere UTC und
+   wuerde in Oesterreich zwischen Mitternacht und 2 Uhr den Vortag liefern. */
+const isoVon = d => d.getFullYear() + "-" +
+  String(d.getMonth()+1).padStart(2,"0") + "-" +
+  String(d.getDate()).padStart(2,"0");
+const heute = () => isoVon(new Date());
+const inTagen = n => { const d = new Date(); d.setDate(d.getDate()+n); return isoVon(d); };
 const jetzt = () => new Date().toISOString();
 const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -529,14 +589,123 @@ function zeichne(){
   el.innerHTML = html;
 }
 
+/* ---------- Terminauswahl (wiederverwendbarer Baustein) ----------
+   Ersetzt das native Datumsfeld: Schnellknoepfe plus eigener Monatskalender.
+   Ein Tippen auf den Tag uebernimmt sofort — kein Bestaetigen noetig.     */
+function terminwahl(container, aufAenderung){
+  let wert = "";
+  let kalenderOffen = false;
+  let monat = new Date();   // erster sichtbarer Monat
+
+  const WOCHENTAGE = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+  const MONATE = ["Jänner","Februar","März","April","Mai","Juni",
+                  "Juli","August","September","Oktober","November","Dezember"];
+
+  function setze(neu, kalenderSchliessen){
+    wert = neu || "";
+    if(kalenderSchliessen) kalenderOffen = false;
+    zeichne();
+    if(aufAenderung) aufAenderung(wert);
+  }
+
+  function monatVerschieben(n){
+    monat = new Date(monat.getFullYear(), monat.getMonth() + n, 1);
+    zeichne();
+  }
+
+  function kalenderHtml(){
+    const ersterTag = new Date(monat.getFullYear(), monat.getMonth(), 1);
+    const anzahl = new Date(monat.getFullYear(), monat.getMonth() + 1, 0).getDate();
+    // getDay(): 0 = Sonntag; wir beginnen bei Montag
+    const versatz = (ersterTag.getDay() + 6) % 7;
+
+    let zellen = WOCHENTAGE.map(t => `<div class="wt">${t}</div>`).join("");
+    for(let i = 0; i < versatz; i++) zellen += `<button class="leer" disabled></button>`;
+    for(let t = 1; t <= anzahl; t++){
+      const iso = isoVon(new Date(monat.getFullYear(), monat.getMonth(), t));
+      const kl = [];
+      if(iso === heute()) kl.push("heute");
+      if(iso === wert) kl.push("aktiv");
+      zellen += `<button data-tag="${iso}" class="${kl.join(" ")}">${t}</button>`;
+    }
+    return `<div class="kalender">
+      <div class="kal-kopf">
+        <button data-monat="-1" aria-label="Voriger Monat">‹</button>
+        <span>${MONATE[monat.getMonth()]} ${monat.getFullYear()}</span>
+        <button data-monat="1" aria-label="Nächster Monat">›</button>
+      </div>
+      <div class="kal-raster">${zellen}</div>
+    </div>`;
+  }
+
+  function zeichne(){
+    const schnell = [
+      ["Heute", inTagen(0)],
+      ["Morgen", inTagen(1)],
+      ["+1 Woche", inTagen(7)]
+    ];
+    let html = `<div class="termin-knoepfe">`;
+    for(const [name, iso] of schnell){
+      html += `<button type="button" data-setz="${iso}" class="${wert===iso?"gewaehlt":""}">${name}</button>`;
+    }
+    const eigenes = wert && !schnell.some(([,iso]) => iso === wert);
+    html += `<button type="button" data-kalender="1" class="${eigenes?"gewaehlt":""}">Datum …</button>`;
+    if(wert) html += `<button type="button" data-leeren="1" class="loeschen" title="Termin entfernen">✕</button>`;
+    html += `</div>`;
+    if(wert) html += `<div class="termin-anzeige">${datumLang(wert)}</div>`;
+    if(kalenderOffen) html += kalenderHtml();
+    container.innerHTML = html;
+  }
+
+  container.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if(!b || !container.contains(b)) return;
+    e.preventDefault();
+    if(b.dataset.setz !== undefined)      return setze(b.dataset.setz === wert ? "" : b.dataset.setz, true);
+    if(b.dataset.tag !== undefined)       return setze(b.dataset.tag, true);
+    if(b.dataset.leeren !== undefined)    return setze("", true);
+    if(b.dataset.monat !== undefined)     return monatVerschieben(parseInt(b.dataset.monat, 10));
+    if(b.dataset.kalender !== undefined){
+      kalenderOffen = !kalenderOffen;
+      if(kalenderOffen) monat = wert ? new Date(wert + "T00:00:00") : new Date();
+      return zeichne();
+    }
+  });
+
+  zeichne();
+
+  return {
+    wert: () => wert,
+    setzen: (neu) => { wert = neu || ""; kalenderOffen = false; zeichne(); },
+    zuruecksetzen: () => { wert = ""; kalenderOffen = false; monat = new Date(); zeichne(); }
+  };
+}
+
+function datumLang(iso){
+  const d = new Date(iso + "T00:00:00");
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString("de-AT",{weekday:"long", day:"2-digit", month:"long", year:"numeric"})
+    + " · " + datumText(iso);
+}
+
 /* ---------- Erfassung ---------- */
 let wahlDringlichkeit = "Mittel";
+let terminErfassung = null;
+let terminEdit = null;
 
 function eingabeGeaendert(){
   const t = $("#eingabe");
   t.style.height = "auto";
   t.style.height = Math.min(t.scrollHeight, 180) + "px";
-  $("#btnAdd").disabled = !t.value.trim();
+  const hatText = !!t.value.trim();
+  $("#btnAdd").disabled = !hatText;
+  // Sobald etwas eingegeben oder diktiert wird, die Zusatzfelder aufklappen
+  if(hatText && !$("#details").classList.contains("offen")) detailsZeigen(true);
+}
+
+function detailsZeigen(offen){
+  $("#details").classList.toggle("offen", offen);
+  $("#btnMehr").textContent = offen ? "Weniger Felder ▴" : "Mehr Felder ▾";
 }
 
 function erfassen(quelle="Manuell"){
@@ -545,20 +714,19 @@ function erfassen(quelle="Manuell"){
   anlegen({
     titel,
     dringlichkeit: wahlDringlichkeit,
-    zieldatum: $("#fZiel").value,
+    zieldatum: terminErfassung ? terminErfassung.wert() : "",
     link: $("#fLink").value,
     notiz: $("#fNotiz").value,
     quelle
   });
   $("#eingabe").value = "";
-  $("#fZiel").value = "";
+  if(terminErfassung) terminErfassung.zuruecksetzen();
   $("#fLink").value = "";
   $("#fNotiz").value = "";
   wahlDringlichkeit = "Mittel";
   document.querySelectorAll("#dringwahl button").forEach(b =>
     b.classList.toggle("gewaehlt", b.dataset.w === "Mittel"));
-  $("#details").classList.remove("offen");
-  $("#btnMehr").textContent = "Mehr Felder ▾";
+  detailsZeigen(false);
   eingabeGeaendert();
   zeichne();
   toast("Aufgabe angelegt");
@@ -772,7 +940,7 @@ function icsBauen(){
     const tag = a.zieldatum.replace(/-/g,"");
     const naechster = new Date(a.zieldatum+"T00:00:00");
     naechster.setDate(naechster.getDate()+1);
-    const ende = naechster.toISOString().slice(0,10).replace(/-/g,"");
+    const ende = isoVon(naechster).replace(/-/g,"");
     zeilen.push("BEGIN:VEVENT");
     zeilen.push("UID:" + a.id + "@p09");
     zeilen.push("DTSTAMP:" + jetzt().replace(/[-:]/g,"").slice(0,15) + "Z");
@@ -811,9 +979,7 @@ function bindeEreignisse(){
   if(!diktatVerfuegbar()) $("#btnMic").title = "Diktat in diesem Browser nicht verfügbar";
 
   $("#btnMehr").addEventListener("click", () => {
-    const d = $("#details");
-    d.classList.toggle("offen");
-    $("#btnMehr").textContent = d.classList.contains("offen") ? "Weniger Felder ▴" : "Mehr Felder ▾";
+    detailsZeigen(!$("#details").classList.contains("offen"));
   });
 
   document.querySelectorAll("#dringwahl button").forEach(b => {
@@ -850,7 +1016,7 @@ function bindeEreignisse(){
       aufgabe: $("#eTitel").value.trim() || "(ohne Text)",
       dringlichkeit: $("#eDring").value,
       status,
-      zieldatum: $("#eZiel").value || null,
+      zieldatum: (terminEdit ? terminEdit.wert() : "") || null,
       startdatum: $("#eStart").value || heute(),
       link: $("#eLink").value.trim(),
       notiz: $("#eNotiz").value.trim(),
@@ -971,7 +1137,7 @@ function dialogEdit(id){
   $("#eTitel").value = a.aufgabe || "";
   $("#eDring").value = a.dringlichkeit || "Mittel";
   $("#eStatus").value = a.status || "Offen";
-  $("#eZiel").value = a.zieldatum || "";
+  if(terminEdit) terminEdit.setzen(a.zieldatum || "");
   $("#eStart").value = a.startdatum || heute();
   $("#eLink").value = a.link || "";
   $("#eNotiz").value = a.notiz || "";
@@ -981,6 +1147,8 @@ function dialogEdit(id){
 
 /* ---------- Start ---------- */
 ladeLokal();
+terminErfassung = terminwahl($("#tErfassung"));
+terminEdit = terminwahl($("#tEdit"));
 bindeEreignisse();
 zeichne();
 eingabeGeaendert();
