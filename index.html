@@ -142,8 +142,19 @@ header .badge{font-size:13px;color:var(--dim);font-weight:400}
 .kal-raster button.aktiv{background:var(--accent);color:#fff;font-weight:600}
 .kal-raster button.leer{visibility:hidden;cursor:default}
 
+/* ---------- Kategorie-Auswahl ---------- */
+.katzeile{margin-top:16px}
+.katzeile select{
+  width:100%;font-family:inherit;font-size:15.5px;color:var(--text);
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:10px 11px;outline:none;cursor:pointer;
+}
+.katzeile select:focus{border-color:var(--accent)}
+.katzeile select.gesetzt{border-color:var(--accent);color:var(--accent);font-weight:600}
+.pill.kat{color:var(--dim);border-color:var(--line);background:var(--bg)}
+
 /* ---------- Filter ---------- */
-.filter{display:flex;gap:7px;margin:18px 0 10px;flex-wrap:wrap}
+.filter{display:flex;gap:7px;margin:10px 0;flex-wrap:wrap}
 .filter button{
   font-family:inherit;font-size:14.5px;padding:6px 13px;border-radius:99px;cursor:pointer;
   border:1px solid var(--line);background:var(--card);color:var(--dim);
@@ -160,6 +171,13 @@ header .badge{font-size:13px;color:var(--dim);font-weight:400}
 }
 .karte.ueberfaellig{border-left:4px solid var(--hoch)}
 .karte.erledigt{opacity:.5}
+.karte[data-edit]{cursor:pointer}
+.karte[data-edit]:active{background:var(--accent-soft)}
+/* Sicherheitsbereich um den Kreis: hier oeffnet sich der Dialog nicht */
+.checkzone{
+  flex:0 0 auto;margin:-12px 0 -12px -13px;padding:12px 10px 12px 13px;
+  display:flex;align-items:flex-start;
+}
 .check{
   flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);
   background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -187,6 +205,7 @@ header .badge{font-size:13px;color:var(--dim);font-weight:400}
 .kartenbtn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px;padding:2px 5px;font-family:inherit}
 .kartenbtn:hover{color:var(--text)}
 .leer{text-align:center;color:var(--dim);padding:48px 20px;font-size:15.5px}
+.fuss{text-align:center;color:var(--dim);font-size:12.5px;padding:26px 0 8px;letter-spacing:.3px}
 
 /* ---------- Dialog ---------- */
 dialog{
@@ -230,8 +249,8 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
   <div class="capture-row">
     <textarea id="eingabe" rows="1" placeholder="Was ist zu tun?" autocomplete="off"></textarea>
     <button class="mic" id="btnMic" title="Diktieren" aria-label="Diktieren">
-      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
-           stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="9" y="2.5" width="6" height="11" rx="3"/>
         <path d="M5.5 10.5v.5a6.5 6.5 0 0 0 13 0v-.5"/>
         <line x1="12" y1="18" x2="12" y2="21.5"/>
@@ -258,12 +277,25 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
       </div>
     </div>
     <div class="feldzeile">
+      <div class="feld" style="flex:1 1 100%">
+        <label>Kategorie</label>
+        <input type="text" id="fKat" list="katListe" placeholder="z.B. Haus, Einkaufen …" autocomplete="off">
+      </div>
+    </div>
+    <div class="feldzeile">
       <div class="feld" style="flex:1 1 100%"><label>Link</label><input type="url" id="fLink" placeholder="Mail, Dokument …" autocomplete="off"></div>
     </div>
     <div class="feldzeile">
       <div class="feld" style="flex:1 1 100%"><label>Notiz</label><textarea id="fNotiz" placeholder="Optional, wenn mehr dazu gehört"></textarea></div>
     </div>
   </div>
+</div>
+
+<datalist id="katListe"></datalist>
+
+<!-- Kategorie -->
+<div class="katzeile">
+  <select id="katFilter"><option value="">Alle Kategorien</option></select>
 </div>
 
 <!-- Filter -->
@@ -277,6 +309,8 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
 </div>
 
 <div id="liste"></div>
+
+<div class="fuss">P09 ToDo · <span id="version"></span></div>
 
 </div>
 
@@ -300,6 +334,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
     <div class="feldzeile">
       <div class="feld"><label>Startdatum</label><input type="date" id="eStart"></div>
     </div>
+    <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Kategorie</label><input type="text" id="eKat" list="katListe" autocomplete="off"></div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Link</label><input type="url" id="eLink"></div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Notiz</label><textarea id="eNotiz"></textarea></div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Prüfstatus</label><select id="ePruef"><option>Sicher</option><option>Bitte prüfen</option></select></div></div>
@@ -358,8 +393,9 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
    Datenschema: siehe P09_Aufgaben.json / Kurzdokumentation
    ========================================================================= */
 
+const VERSION = "V00-07";
 const SCHEMA = "P09_ToDo";
-const SCHEMA_VERSION = "1.0";
+const SCHEMA_VERSION = "1.1";
 const LS_DATEN = "p09_daten";
 const LS_CONFIG = "p09_config";
 const SCOPE = "https://www.googleapis.com/auth/drive";
@@ -369,6 +405,7 @@ const DATEINAME = "P09_Aufgaben.json";
 let daten = leeresModell();
 let config = { clientId:"", fileId:"", theme:"" };
 let filter = "offen";
+let kategorieFilter = "";
 let editId = null;
 let token = null;          // { access_token, exp }
 let tokenClient = null;
@@ -386,6 +423,7 @@ function leeresModell(){
       pruefstatus:["Sicher","Bitte pruefen"],
       quelle:["Manuell","Sprache","Mail"]
     },
+    kategorien: [],
     aufgaben: []
   };
 }
@@ -464,11 +502,31 @@ function neueId(){
   return "P09-" + String(n).padStart(4,"0");
 }
 
-function anlegen({titel, dringlichkeit="Mittel", zieldatum="", link="", notiz="", quelle="Manuell"}){
+/* Kategorien werden gesammelt, damit sie auch dann in der Auswahl bleiben,
+   wenn gerade keine Aufgabe mehr dazu offen ist. */
+function kategorieMerken(name){
+  const k = (name||"").trim();
+  if(!k) return "";
+  if(!Array.isArray(daten.kategorien)) daten.kategorien = [];
+  if(!daten.kategorien.some(x => x.toLowerCase() === k.toLowerCase())){
+    daten.kategorien.push(k);
+    daten.kategorien.sort((x,y) => x.localeCompare(y,"de"));
+  }
+  return k;
+}
+
+function alleKategorien(){
+  const aus = new Set(Array.isArray(daten.kategorien) ? daten.kategorien : []);
+  aktive().forEach(a => { if(a.kategorie) aus.add(a.kategorie); });
+  return Array.from(aus).sort((x,y) => x.localeCompare(y,"de"));
+}
+
+function anlegen({titel, dringlichkeit="Mittel", zieldatum="", link="", notiz="", quelle="Manuell", kategorie=""}){
   const a = {
     id: neueId(),
     aufgabe: titel.trim(),
     notiz: notiz.trim(),
+    kategorie: kategorieMerken(kategorie),
     dringlichkeit,
     zieldatum: zieldatum || null,
     startdatum: heute(),
@@ -519,7 +577,9 @@ function loeschen(id){
 }
 
 function sichtbare(){
-  const a = aktive();
+  const a = kategorieFilter
+    ? aktive().filter(x => x.kategorie === kategorieFilter)
+    : aktive();
   switch(filter){
     case "offen":    return a.filter(x => x.status === "Offen" || x.status === "Läuft");
     case "heute":    return a.filter(x => istUeberfaellig(x) || istHeute(x));
@@ -551,6 +611,7 @@ function karte(a){
   else if(istUeberfaellig(a)) kl.push("ueberfaellig");
 
   const meta = [];
+  if(a.kategorie) meta.push(`<span class="pill kat">${esc(a.kategorie)}</span>`);
   if(a.dringlichkeit && a.dringlichkeit !== "Mittel")
     meta.push(`<span class="pill ${esc(a.dringlichkeit)}">${esc(a.dringlichkeit)}</span>`);
   if(a.zieldatum)
@@ -561,10 +622,11 @@ function karte(a){
   if(a.pruefstatus === "Bitte prüfen" || a.pruefstatus === "Bitte pruefen")
     meta.push(`<span class="pill pruef">bitte prüfen</span>`);
   if(a.quelle === "Mail") meta.push(`<span>✉ aus Mail</span>`);
-  meta.push(`<button class="kartenbtn" data-edit="${esc(a.id)}" title="Bearbeiten">✎</button>`);
 
-  return `<div class="${kl.join(" ")}">
-    <button class="check ${a.status==="Erledigt"?"an":(a.status==="Läuft"?"laeuft":"")}" data-check="${esc(a.id)}" aria-label="${a.status==="Läuft"?"Läuft – zum Abschließen antippen":"Erledigt"}">✓</button>
+  return `<div class="${kl.join(" ")}" data-edit="${esc(a.id)}">
+    <div class="checkzone">
+      <button class="check ${a.status==="Erledigt"?"an":(a.status==="Läuft"?"laeuft":"")}" data-check="${esc(a.id)}" aria-label="${a.status==="Läuft"?"Läuft – zum Abschließen antippen":"Erledigt"}">✓</button>
+    </div>
     <div class="inhalt">
       <div class="titel">${esc(a.aufgabe)}</div>
       <div class="meta">${meta.join("")}</div>
@@ -573,7 +635,25 @@ function karte(a){
   </div>`;
 }
 
+function kategorienZeichnen(){
+  const kats = alleKategorien();
+  // Vorschlagsliste fuer beide Eingabefelder
+  $("#katListe").innerHTML = kats.map(k => `<option value="${esc(k)}"></option>`).join("");
+  // Auswahlfeld oberhalb der Liste
+  const sel = $("#katFilter");
+  if(kategorieFilter && !kats.includes(kategorieFilter)) kategorieFilter = "";
+  sel.innerHTML = `<option value="">Alle Kategorien</option>` +
+    kats.map(k => {
+      const anzahl = aktive().filter(a => a.kategorie === k && a.status !== "Erledigt").length;
+      return `<option value="${esc(k)}">${esc(k)}${anzahl ? " · " + anzahl : ""}</option>`;
+    }).join("");
+  sel.value = kategorieFilter;
+  sel.classList.toggle("gesetzt", !!kategorieFilter);
+  sel.hidden = kats.length === 0;
+}
+
 function zeichne(){
+  kategorienZeichnen();
   const liste = sortiere(sichtbare());
   const el = $("#liste");
 
@@ -745,10 +825,12 @@ function erfassen(quelle="Manuell"){
     zieldatum: terminErfassung ? terminErfassung.wert() : "",
     link: $("#fLink").value,
     notiz: $("#fNotiz").value,
+    kategorie: $("#fKat").value || kategorieFilter,
     quelle
   });
   $("#eingabe").value = "";
   if(terminErfassung) terminErfassung.zuruecksetzen();
+  $("#fKat").value = "";
   $("#fLink").value = "";
   $("#fNotiz").value = "";
   wahlDringlichkeit = "Mittel";
@@ -778,16 +860,19 @@ function diktatStart(){
   erkennung.interimResults = true;
 
   const vorher = $("#eingabe").value;
-  let fertig = "";
 
+  /* Bei jedem Ereignis den Text KOMPLETT neu aus ev.results aufbauen.
+     Frueher wurde ab ev.resultIndex angehaengt — Chrome liefert die Liste
+     aber teilweise erneut, wodurch Woerter doppelt bis zehnfach erschienen. */
   erkennung.onresult = (ev) => {
-    let vorlaeufig = "";
-    for(let i = ev.resultIndex; i < ev.results.length; i++){
+    let fertig = "", vorlaeufig = "";
+    for(let i = 0; i < ev.results.length; i++){
       const stueck = ev.results[i][0].transcript;
       if(ev.results[i].isFinal) fertig += stueck;
       else vorlaeufig += stueck;
     }
-    $("#eingabe").value = (vorher ? vorher + " " : "") + fertig + vorlaeufig;
+    const neu = (fertig + vorlaeufig).replace(/\s+/g, " ").trim();
+    $("#eingabe").value = (vorher ? vorher.trim() + " " : "") + neu;
     eingabeGeaendert();
   };
   erkennung.onerror = (ev) => {
@@ -1022,6 +1107,11 @@ function bindeEreignisse(){
     });
   });
 
+  $("#katFilter").addEventListener("change", (e) => {
+    kategorieFilter = e.target.value;
+    zeichne();
+  });
+
   $("#filter").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-f]");
     if(!b) return;
@@ -1032,8 +1122,14 @@ function bindeEreignisse(){
   });
 
   $("#liste").addEventListener("click", (e) => {
-    const c = e.target.closest("[data-check]");
-    if(c){ umschalten(c.dataset.check); return; }
+    // Links in der Karte folgen ihrem Ziel, ohne den Dialog zu oeffnen
+    if(e.target.closest("a")) return;
+    // Der Kreis samt Sicherheitsbereich schaltet nur den Status um
+    if(e.target.closest(".checkzone")){
+      const c = e.target.closest("[data-check]");
+      if(c) umschalten(c.dataset.check);
+      return;
+    }
     const ed = e.target.closest("[data-edit]");
     if(ed){ dialogEdit(ed.dataset.edit); return; }
   });
@@ -1052,6 +1148,7 @@ function bindeEreignisse(){
       startdatum: $("#eStart").value || heute(),
       link: $("#eLink").value.trim(),
       notiz: $("#eNotiz").value.trim(),
+      kategorie: kategorieMerken($("#eKat").value),
       pruefstatus: $("#ePruef").value,
       erledigtAm: status === "Erledigt" ? (alt && alt.erledigtAm ? alt.erledigtAm : heute()) : null
     });
@@ -1106,7 +1203,7 @@ function bindeEreignisse(){
     const a = aktive();
     const offen = a.filter(x => x.status === "Offen").length;
     const erl = a.filter(x => x.status === "Erledigt").length;
-    $("#menuStatus").textContent = `${a.length} Aufgaben · ${offen} offen · ${erl} erledigt`;
+    $("#menuStatus").textContent = `Fassung ${VERSION} · ${a.length} Aufgaben · ${offen} offen · ${erl} erledigt`;
     $("#dlgMenu").showModal();
   });
   $("#mSchliessen").addEventListener("click", () => $("#dlgMenu").close());
@@ -1171,6 +1268,7 @@ function dialogEdit(id){
   $("#eStatus").value = a.status || "Offen";
   if(terminEdit) terminEdit.setzen(a.zieldatum || "");
   $("#eStart").value = a.startdatum || heute();
+  $("#eKat").value = a.kategorie || "";
   $("#eLink").value = a.link || "";
   $("#eNotiz").value = a.notiz || "";
   $("#ePruef").value = (a.pruefstatus === "Bitte pruefen") ? "Bitte prüfen" : (a.pruefstatus || "Sicher");
@@ -1179,6 +1277,7 @@ function dialogEdit(id){
 
 /* ---------- Start ---------- */
 ladeLokal();
+$("#version").textContent = VERSION;
 terminErfassung = terminwahl($("#tErfassung"));
 terminEdit = terminwahl($("#tEdit"));
 bindeEreignisse();
