@@ -432,7 +432,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
    Datenschema: siehe P09_Aufgaben.json / Kurzdokumentation
    ========================================================================= */
 
-const VERSION = "V00-09";
+const VERSION = "V00-10";
 const SCHEMA = "P09_ToDo";
 const SCHEMA_VERSION = "1.1";
 const LS_DATEN = "p09_daten";
@@ -921,28 +921,38 @@ function diktatVerfuegbar(){
   return "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
 }
 
+/* Android liefert Teilergebnisse, die einander enthalten ("Rampe", dann
+   "Rampe Parkplatz"). Stumpfes Aneinanderhaengen ergab "RampeRampe Parkplatz".
+   Hier gewinnt jeweils das umfassendere Stueck; nur echt Neues kommt dazu. */
+function textAusErgebnissen(results){
+  let teile = [];
+  for(const r of results){
+    const t = String(r[0] && r[0].transcript || "").replace(/\s+/g, " ").trim();
+    if(!t) continue;
+    const vergleich = t.toLowerCase();
+    // enthaelt das neue Stueck ein frueheres, ersetzt es dieses
+    teile = teile.filter(x => !vergleich.includes(x.toLowerCase()));
+    // ist es selbst schon in einem frueheren enthalten, wird es verworfen
+    if(!teile.some(x => x.toLowerCase().includes(vergleich))) teile.push(t);
+  }
+  return teile.join(" ");
+}
+
 function diktatStart(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR) return;
   erkennung = new SR();
   erkennung.lang = "de-AT";
-  erkennung.continuous = true;
+  /* continuous=false: ein Abschnitt je Knopfdruck. Auf Android erzeugte
+     continuous=true reihenweise einander ueberlappende Teilergebnisse. */
+  erkennung.continuous = false;
   erkennung.interimResults = true;
+  erkennung.maxAlternatives = 1;
 
-  const vorher = $("#eingabe").value;
+  const basis = $("#eingabe").value.trim();
 
-  /* Bei jedem Ereignis den Text KOMPLETT neu aus ev.results aufbauen.
-     Frueher wurde ab ev.resultIndex angehaengt — Chrome liefert die Liste
-     aber teilweise erneut, wodurch Woerter doppelt bis zehnfach erschienen. */
   erkennung.onresult = (ev) => {
-    let fertig = "", vorlaeufig = "";
-    for(let i = 0; i < ev.results.length; i++){
-      const stueck = ev.results[i][0].transcript;
-      if(ev.results[i].isFinal) fertig += stueck;
-      else vorlaeufig += stueck;
-    }
-    const neu = (fertig + vorlaeufig).replace(/\s+/g, " ").trim();
-    $("#eingabe").value = (vorher ? vorher.trim() + " " : "") + neu;
+    $("#eingabe").value = (basis ? basis + " " : "") + textAusErgebnissen(ev.results);
     eingabeGeaendert();
   };
   erkennung.onerror = (ev) => {
