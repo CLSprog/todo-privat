@@ -17,20 +17,21 @@
   --bg:#f4f5f3; --card:#ffffff; --text:#1c2320; --dim:#6b7570; --line:#dfe3df;
   --accent:#2f6f4e; --accent-soft:#e6f0ea;
   --hoch:#c0392b; --mittel:#c8891b; --niedrig:#5b7c92;
+  --laeuft:#e8b21c;
   --warn:#fdf0ed; --shadow:0 1px 3px rgba(0,0,0,.07),0 6px 18px rgba(0,0,0,.05);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#14181a; --card:#1d2225; --text:#e8ecea; --dim:#98a5a0; --line:#2e3538;
     --accent:#63b98b; --accent-soft:#1f3229;
-    --hoch:#e8776a; --mittel:#e0ab5c; --niedrig:#8db0c4;
+    --hoch:#e8776a; --mittel:#e0ab5c; --niedrig:#8db0c4; --laeuft:#f0c33c;
     --warn:#31211f; --shadow:0 1px 3px rgba(0,0,0,.3);
   }
 }
 :root[data-theme="dark"]{
   --bg:#14181a; --card:#1d2225; --text:#e8ecea; --dim:#98a5a0; --line:#2e3538;
   --accent:#63b98b; --accent-soft:#1f3229;
-  --hoch:#e8776a; --mittel:#e0ab5c; --niedrig:#8db0c4;
+  --hoch:#e8776a; --mittel:#e0ab5c; --niedrig:#8db0c4; --laeuft:#f0c33c;
   --warn:#31211f; --shadow:0 1px 3px rgba(0,0,0,.3);
 }
 *{box-sizing:border-box}
@@ -166,6 +167,14 @@ header .badge{font-size:13px;color:var(--dim);font-weight:400}
 }
 .check:hover{border-color:var(--accent)}
 .check.an{background:var(--accent);border-color:var(--accent);color:#fff}
+/* Laufende Aufgabe: grosser gelber Punkt statt leerem Kreis */
+.check.laeuft{
+  width:30px;height:30px;background:var(--laeuft);border-color:var(--laeuft);
+  color:transparent;box-shadow:0 0 0 4px color-mix(in srgb, var(--laeuft) 22%, transparent);
+  margin-top:0;
+}
+.check.laeuft:hover{color:#fff}
+.pill.laeuft{color:var(--laeuft);border-color:var(--laeuft);font-weight:600}
 .inhalt{flex:1;min-width:0}
 .titel{font-size:16.5px;word-wrap:break-word}
 .karte.erledigt .titel{text-decoration:line-through}
@@ -261,6 +270,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
 <div class="filter" id="filter">
   <button data-f="offen" class="aktiv">Offen</button>
   <button data-f="heute">Fällig</button>
+  <button data-f="laeuft">Läuft</button>
   <button data-f="warten">Warten</button>
   <button data-f="erledigt">Erledigt</button>
   <button data-f="alle">Alle</button>
@@ -279,7 +289,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Aufgabe</label><input type="text" id="eTitel"></div></div>
     <div class="feldzeile">
       <div class="feld"><label>Dringlichkeit</label><select id="eDring"><option>Hoch</option><option>Mittel</option><option>Niedrig</option></select></div>
-      <div class="feld"><label>Status</label><select id="eStatus"><option>Offen</option><option>Warten</option><option>Erledigt</option></select></div>
+      <div class="feld"><label>Status</label><select id="eStatus"><option>Offen</option><option>Läuft</option><option>Warten</option><option>Erledigt</option></select></div>
     </div>
     <div class="feldzeile">
       <div class="feld" style="flex:1 1 100%">
@@ -372,7 +382,7 @@ function leeresModell(){
     naechsteNummer: 1,
     wertelisten: {
       dringlichkeit:["Hoch","Mittel","Niedrig"],
-      status:["Offen","Warten","Erledigt"],
+      status:["Offen","Läuft","Warten","Erledigt"],
       pruefstatus:["Sicher","Bitte pruefen"],
       quelle:["Manuell","Sprache","Mail"]
     },
@@ -467,6 +477,7 @@ function anlegen({titel, dringlichkeit="Mittel", zieldatum="", link="", notiz=""
     pruefstatus: "Sicher",
     quelle,
     erledigtAm: null,
+    geloeschtAm: null,
     letzteAenderung: jetzt()
   };
   daten.aufgaben.unshift(a);
@@ -496,11 +507,23 @@ function umschalten(id){
 /* ---------- Darstellung ---------- */
 const RANG = { Hoch:0, Mittel:1, Niedrig:2 };
 
+/* Geloeschte Aufgaben bleiben als Markierung in der Datei stehen, damit die
+   Loeschung auch auf den anderen Geraeten ankommt. Ueberall im Programm wird
+   deshalb mit aktive() statt mit daten.aufgaben gearbeitet. */
+function aktive(){
+  return daten.aufgaben.filter(x => !x.geloeschtAm);
+}
+
+function loeschen(id){
+  aendere(id, { geloeschtAm: jetzt() });
+}
+
 function sichtbare(){
-  const a = daten.aufgaben;
+  const a = aktive();
   switch(filter){
-    case "offen":    return a.filter(x => x.status === "Offen");
+    case "offen":    return a.filter(x => x.status === "Offen" || x.status === "Läuft");
     case "heute":    return a.filter(x => istUeberfaellig(x) || istHeute(x));
+    case "laeuft":   return a.filter(x => x.status === "Läuft");
     case "warten":   return a.filter(x => x.status === "Warten");
     case "erledigt": return a.filter(x => x.status === "Erledigt");
     default:         return a.slice();
@@ -532,6 +555,7 @@ function karte(a){
     meta.push(`<span class="pill ${esc(a.dringlichkeit)}">${esc(a.dringlichkeit)}</span>`);
   if(a.zieldatum)
     meta.push(`<span${istUeberfaellig(a)?' style="color:var(--hoch)"':''}>📅 ${esc(datumText(a.zieldatum))}</span>`);
+  if(a.status === "Läuft") meta.push(`<span class="pill laeuft">läuft</span>`);
   if(a.status === "Warten") meta.push(`<span>⏳ Warten</span>`);
   if(a.link) meta.push(`<a href="${esc(a.link)}" target="_blank" rel="noopener">🔗 Link</a>`);
   if(a.pruefstatus === "Bitte prüfen" || a.pruefstatus === "Bitte pruefen")
@@ -540,7 +564,7 @@ function karte(a){
   meta.push(`<button class="kartenbtn" data-edit="${esc(a.id)}" title="Bearbeiten">✎</button>`);
 
   return `<div class="${kl.join(" ")}">
-    <button class="check ${a.status==="Erledigt"?"an":""}" data-check="${esc(a.id)}" aria-label="Erledigt">✓</button>
+    <button class="check ${a.status==="Erledigt"?"an":(a.status==="Läuft"?"laeuft":"")}" data-check="${esc(a.id)}" aria-label="${a.status==="Läuft"?"Läuft – zum Abschließen antippen":"Erledigt"}">✓</button>
     <div class="inhalt">
       <div class="titel">${esc(a.aufgabe)}</div>
       <div class="meta">${meta.join("")}</div>
@@ -553,14 +577,15 @@ function zeichne(){
   const liste = sortiere(sichtbare());
   const el = $("#liste");
 
-  const offen = daten.aufgaben.filter(x => x.status === "Offen").length;
-  const faellig = daten.aufgaben.filter(x => istUeberfaellig(x) || istHeute(x)).length;
+  const offen = aktive().filter(x => x.status === "Offen" || x.status === "Läuft").length;
+  const faellig = aktive().filter(x => istUeberfaellig(x) || istHeute(x)).length;
   $("#zaehler").textContent = offen ? `${offen} offen${faellig ? ` · ${faellig} fällig` : ""}` : "";
 
   if(!liste.length){
     const texte = {
       offen:"Keine offenen Aufgaben. ",
       heute:"Heute ist nichts fällig.",
+      laeuft:"Gerade läuft nichts.",
       warten:"Nichts auf Warten.",
       erledigt:"Noch nichts erledigt.",
       alle:"Die Liste ist leer. Sprich oder tippe oben hinein."
@@ -571,12 +596,15 @@ function zeichne(){
 
   let html = "";
   if(filter === "offen" || filter === "alle"){
+    const laufend = liste.filter(a => a.status === "Läuft");
+    const rest = liste.filter(a => a.status !== "Läuft");
     const gruppen = [
-      ["Überfällig", liste.filter(istUeberfaellig), true],
-      ["Heute fällig", liste.filter(istHeute), true],
-      ["Mit Termin", liste.filter(a => a.status!=="Erledigt" && a.zieldatum && a.zieldatum > heute()), false],
-      ["Ohne Termin", liste.filter(a => a.status!=="Erledigt" && !a.zieldatum), false],
-      ["Erledigt", liste.filter(a => a.status==="Erledigt"), false]
+      ["In Arbeit", laufend, false],
+      ["Überfällig", rest.filter(istUeberfaellig), true],
+      ["Heute fällig", rest.filter(istHeute), true],
+      ["Mit Termin", rest.filter(a => a.status!=="Erledigt" && a.zieldatum && a.zieldatum > heute()), false],
+      ["Ohne Termin", rest.filter(a => a.status!=="Erledigt" && !a.zieldatum), false],
+      ["Erledigt", rest.filter(a => a.status==="Erledigt"), false]
     ];
     for(const [name, eintraege, dringend] of gruppen){
       if(!eintraege.length) continue;
@@ -872,7 +900,11 @@ function zusammenfuehren(lokal, fern){
     const b = karteMap.get(a.id);
     if(!b || String(a.letzteAenderung||"") >= String(b.letzteAenderung||"")) karteMap.set(a.id, a);
   }
-  const vereint = Array.from(karteMap.values());
+  // Loeschmarkierungen nach 60 Tagen endgueltig entfernen, damit die Datei nicht waechst
+  const grenze = new Date();
+  grenze.setDate(grenze.getDate() - 60);
+  const vereint = Array.from(karteMap.values())
+    .filter(a => !a.geloeschtAm || new Date(a.geloeschtAm) > grenze);
   const hoechste = vereint.reduce((m,a) => {
     const treffer = /-(\d+)$/.exec(String(a.id));   // nur die Nummer hinter dem Bindestrich
     const n = treffer ? parseInt(treffer[1],10) : NaN;
@@ -915,7 +947,7 @@ function syncStatusZeigen(){
   const el = $("#syncStatus");
   if(!el) return;
   if(!config.clientId){
-    el.textContent = "Nur auf diesem Gerät gespeichert. " + daten.aufgaben.length + " Aufgaben.";
+    el.textContent = "Nur auf diesem Gerät gespeichert. " + aktive().length + " Aufgaben.";
   } else if(tokenGueltig()){
     el.textContent = "Mit Google Drive verbunden" + (config.fileId ? " · Datei " + config.fileId.slice(0,10) + "…" : " · Datei wird beim ersten Abgleich angelegt");
   } else {
@@ -935,7 +967,7 @@ function herunterladen(name, inhalt, typ){
 
 function icsBauen(){
   const zeilen = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//P09//ToDo//DE","CALSCALE:GREGORIAN"];
-  const offen = daten.aufgaben.filter(a => a.status !== "Erledigt" && a.zieldatum);
+  const offen = aktive().filter(a => a.status !== "Erledigt" && a.zieldatum);
   for(const a of offen){
     const tag = a.zieldatum.replace(/-/g,"");
     const naechster = new Date(a.zieldatum+"T00:00:00");
@@ -1030,8 +1062,7 @@ function bindeEreignisse(){
   });
   $("#eLoeschen").addEventListener("click", () => {
     if(!editId) return;
-    daten.aufgaben = daten.aufgaben.filter(a => a.id !== editId);
-    speichereLokal();
+    loeschen(editId);
     $("#dlgEdit").close();
     zeichne();
     toast("Gelöscht");
@@ -1072,9 +1103,10 @@ function bindeEreignisse(){
 
   /* Menü */
   $("#btnMenu").addEventListener("click", () => {
-    const offen = daten.aufgaben.filter(a => a.status === "Offen").length;
-    const erl = daten.aufgaben.filter(a => a.status === "Erledigt").length;
-    $("#menuStatus").textContent = `${daten.aufgaben.length} Aufgaben · ${offen} offen · ${erl} erledigt`;
+    const a = aktive();
+    const offen = a.filter(x => x.status === "Offen").length;
+    const erl = a.filter(x => x.status === "Erledigt").length;
+    $("#menuStatus").textContent = `${a.length} Aufgaben · ${offen} offen · ${erl} erledigt`;
     $("#dlgMenu").showModal();
   });
   $("#mSchliessen").addEventListener("click", () => $("#dlgMenu").close());
@@ -1115,10 +1147,10 @@ function bindeEreignisse(){
     speichereConfig();
   });
   $("#mLeeren").addEventListener("click", () => {
-    const anzahl = daten.aufgaben.filter(a => a.status === "Erledigt").length;
-    if(!anzahl){ toast("Nichts zu entfernen"); return; }
-    daten.aufgaben = daten.aufgaben.filter(a => a.status !== "Erledigt");
-    speichereLokal();
+    const erledigte = aktive().filter(a => a.status === "Erledigt");
+    if(!erledigte.length){ toast("Nichts zu entfernen"); return; }
+    const anzahl = erledigte.length;
+    erledigte.forEach(a => loeschen(a.id));
     zeichne();
     toast(anzahl + " erledigte entfernt");
     autoSync();
