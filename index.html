@@ -154,6 +154,10 @@ header .vers{
   color:var(--accent);font-size:22px;border-radius:10px;cursor:pointer;font-family:inherit;
 }
 .katplus:hover{border-color:var(--accent);background:var(--accent-soft)}
+/* Kategorie-Auswahl in Erfassung und Bearbeiten-Dialog, jeweils mit eigenem Plus */
+.katfeld{display:flex;gap:8px;align-items:stretch}
+.katfeld select{flex:1;min-width:0}
+.katfeld .katplus{width:42px;font-size:20px;background:var(--bg)}
 .katzeile select{
   flex:1;min-width:0;font-family:inherit;font-size:15.5px;color:var(--text);
   background:var(--card);border:1px solid var(--line);border-radius:10px;
@@ -289,7 +293,10 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
     <div class="feldzeile">
       <div class="feld" style="flex:1 1 100%">
         <label>Kategorie</label>
-        <select id="fKat"><option value="">— keine —</option></select>
+        <div class="katfeld">
+          <select id="fKat"><option value="">— keine —</option></select>
+          <button type="button" class="katplus" data-katziel="f" title="Neue Kategorie">＋</button>
+        </div>
       </div>
     </div>
     <div class="feldzeile">
@@ -306,7 +313,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
 <!-- Kategorie -->
 <div class="katzeile">
   <select id="katFilter"><option value="">Alle Kategorien</option></select>
-  <button class="katplus" id="katNeu" title="Neue Kategorie anlegen" aria-label="Neue Kategorie">＋</button>
+  <button class="katplus" data-katziel="filter" title="Neue Kategorie anlegen" aria-label="Neue Kategorie">＋</button>
 </div>
 
 <!-- Filter -->
@@ -345,7 +352,12 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
     <div class="feldzeile">
       <div class="feld"><label>Startdatum</label><input type="date" id="eStart"></div>
     </div>
-    <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Kategorie</label><select id="eKat"><option value="">— keine —</option></select></div></div>
+    <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Kategorie</label>
+      <div class="katfeld">
+        <select id="eKat"><option value="">— keine —</option></select>
+        <button type="button" class="katplus" data-katziel="e" title="Neue Kategorie">＋</button>
+      </div>
+    </div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Link</label><input type="url" id="eLink"></div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Notiz</label><textarea id="eNotiz"></textarea></div></div>
     <div class="feldzeile"><div class="feld" style="flex:1 1 100%"><label>Prüfstatus</label><select id="ePruef"><option>Sicher</option><option>Bitte prüfen</option></select></div></div>
@@ -420,7 +432,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
    Datenschema: siehe P09_Aufgaben.json / Kurzdokumentation
    ========================================================================= */
 
-const VERSION = "V00-08";
+const VERSION = "V00-09";
 const SCHEMA = "P09_ToDo";
 const SCHEMA_VERSION = "1.1";
 const LS_DATEN = "p09_daten";
@@ -687,16 +699,21 @@ function kategorienZeichnen(){
   }
 }
 
+/* Wohin die neu angelegte Kategorie gesetzt wird: Filterzeile, Erfassung oder Dialog */
+let katZiel = "filter";
+
 function neueKategorieAnlegen(){
   const name = $("#kNeu").value.trim();
   if(!name){ toast("Bitte eine Bezeichnung eingeben"); return; }
   kategorieMerken(name);
   speichereLokal();
-  kategorieFilter = name;          // gleich danach filtern und neue Aufgaben zuordnen
+  if(katZiel === "filter") kategorieFilter = name;
   $("#dlgKat").close();
   $("#kNeu").value = "";
   zeichne();
-  $("#fKat").value = name;
+  if(katZiel === "f") $("#fKat").value = name;
+  else if(katZiel === "e") $("#eKat").value = name;
+  else $("#fKat").value = name;
   toast("Kategorie „" + name + "“ angelegt");
   autoSync();
 }
@@ -868,13 +885,17 @@ function detailsZeigen(offen){
 function erfassen(quelle="Manuell"){
   const titel = $("#eingabe").value.trim();
   if(!titel) return;
+  const gewaehlteKat = $("#fKat").value || kategorieFilter;
+  // Damit die neue Aufgabe nicht sofort aus der Ansicht faellt, folgt der Filter ihr
+  if(kategorieFilter && kategorieFilter !== gewaehlteKat) kategorieFilter = gewaehlteKat;
+
   anlegen({
     titel,
     dringlichkeit: wahlDringlichkeit,
     zieldatum: terminErfassung ? terminErfassung.wert() : "",
     link: $("#fLink").value,
     notiz: $("#fNotiz").value,
-    kategorie: $("#fKat").value || kategorieFilter,
+    kategorie: gewaehlteKat,
     quelle
   });
   $("#eingabe").value = "";
@@ -1044,9 +1065,18 @@ function zusammenfuehren(lokal, fern){
     const n = treffer ? parseInt(treffer[1],10) : NaN;
     return isNaN(n) ? m : Math.max(m,n);
   }, 0);
+  // Kategorien beider Seiten vereinigen — sonst gingen sie beim Abgleich verloren,
+  // weil leeresModell() eine leere Liste mitbringt.
+  const kats = new Set([
+    ...(Array.isArray(lokal.kategorien) ? lokal.kategorien : []),
+    ...(Array.isArray(fern.kategorien) ? fern.kategorien : [])
+  ]);
+  vereint.forEach(a => { if(a.kategorie) kats.add(a.kategorie); });
+
   return {
     ...leeresModell(),
     naechsteNummer: Math.max(lokal.naechsteNummer||1, fern.naechsteNummer||1, hoechste+1),
+    kategorien: Array.from(kats).sort((x,y) => x.localeCompare(y,"de")),
     aufgaben: vereint
   };
 }
@@ -1162,10 +1192,13 @@ function bindeEreignisse(){
     if(kategorieFilter) $("#fKat").value = kategorieFilter;
   });
 
-  $("#katNeu").addEventListener("click", () => {
-    $("#kNeu").value = "";
-    $("#dlgKat").showModal();
-    setTimeout(() => $("#kNeu").focus(), 50);
+  document.querySelectorAll(".katplus").forEach(b => {
+    b.addEventListener("click", () => {
+      katZiel = b.dataset.katziel || "filter";
+      $("#kNeu").value = "";
+      $("#dlgKat").showModal();
+      setTimeout(() => $("#kNeu").focus(), 50);
+    });
   });
   $("#kAbbruch").addEventListener("click", () => $("#dlgKat").close());
   $("#kAnlegen").addEventListener("click", neueKategorieAnlegen);
