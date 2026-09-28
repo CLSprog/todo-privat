@@ -270,6 +270,13 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
         <line x1="12" y1="18" x2="12" y2="21.5"/>
       </svg>
     </button>
+    <button class="mic" id="btnDialog" title="Gefuehrter Sprachdialog" aria-label="Gefuehrter Sprachdialog" style="background:var(--card);border:1px solid var(--line);color:var(--accent)">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 10h.01M12 10h.01M16 10h.01"/>
+        <path d="M21 12a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.5-.3-3.6-.8L3 21l1.4-4.2A8.4 8.4 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5 8.5 8.5 0 0 1 21 12Z"/>
+      </svg>
+    </button>
     <button class="add" id="btnAdd" title="Aufgabe anlegen" disabled>＋</button>
   </div>
   <button class="mehr" id="btnMehr">Mehr Felder ▾</button>
@@ -424,6 +431,283 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
   <div class="dlg-fuss"><button class="btn prim" id="mSchliessen">Schließen</button></div>
 </dialog>
 
+<!-- Baustein B04-C30_Sprachdialog (Bibliothek, Fassung V01-00) — gefuehrter Sprachdialog per Sprachausgabe/-erkennung -->
+<script>
+"use strict";
+var B04C30Sprachdialog = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // B04-C30_Sprachdialog.ts
+  var B04_C30_Sprachdialog_exports = {};
+  __export(B04_C30_Sprachdialog_exports, {
+    SPRACHDIALOG_ABGEBROCHEN: () => SPRACHDIALOG_ABGEBROCHEN,
+    SprachdialogNichtVerfuegbar: () => SprachdialogNichtVerfuegbar,
+    dringlichkeitAusText: () => dringlichkeitAusText,
+    kategorieAusText: () => kategorieAusText,
+    sprachdialogStarten: () => sprachdialogStarten,
+    terminAusText: () => terminAusText
+  });
+  var SPRACHDIALOG_ABGEBROCHEN = null;
+  var SprachdialogNichtVerfuegbar = class extends Error {
+    constructor() {
+      super("Spracherkennung oder Sprachausgabe ist in diesem Browser nicht verfuegbar.");
+      this.name = "SprachdialogNichtVerfuegbar";
+    }
+  };
+  function normalisiere(text) {
+    return text.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/\s+/g, " ").trim();
+  }
+  function normalisiereWort(text) {
+    return normalisiere(text).replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  }
+  function distanz(a, b) {
+    const m = a.length, n = b.length;
+    const d = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) d[i][0] = i;
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const kosten = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + kosten);
+      }
+    }
+    return d[m][n];
+  }
+  var WOCHENTAGE_NAMEN = ["sonntag", "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag"];
+  var MONATE_NAMEN = [
+    "januar",
+    "februar",
+    "maerz",
+    "april",
+    "mai",
+    "juni",
+    "juli",
+    "august",
+    "september",
+    "oktober",
+    "november",
+    "dezember"
+  ];
+  function isoVon(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function inTagen(basis, n) {
+    const d = new Date(basis);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+  function terminAusText(text, heute = /* @__PURE__ */ new Date()) {
+    const t = normalisiere(text);
+    if (!t) return null;
+    if (/^(kein|keine|keinen|ohne|nein|egal|nichts)\b/.test(normalisiereWort(t))) return "";
+    if (t === "heute") return isoVon(heute);
+    if (t === "morgen") return isoVon(inTagen(heute, 1));
+    if (t === "uebermorgen") return isoVon(inTagen(heute, 2));
+    let m = t.match(/^in (\d+|ein|einem|einer|zwei|drei|vier|fuenf|sechs|sieben|acht|neun|zehn) tag(e|en)?$/);
+    if (m) return isoVon(inTagen(heute, wortZahl(m[1])));
+    m = t.match(/^in (\d+|ein|einer|zwei|drei|vier|fuenf|sechs|sieben|acht|neun|zehn) woche(n)?$/);
+    if (m) return isoVon(inTagen(heute, wortZahl(m[1]) * 7));
+    m = t.match(/^(naechsten|naechste|kommenden|kommende)?\s*(sonntag|montag|dienstag|mittwoch|donnerstag|freitag|samstag)$/);
+    if (m) {
+      const ziel = WOCHENTAGE_NAMEN.indexOf(m[2]);
+      let diff = (ziel - heute.getDay() + 7) % 7;
+      if (diff === 0) diff = 7;
+      return isoVon(inTagen(heute, diff));
+    }
+    m = t.match(/^(\d{1,2})\.?\s*(januar|februar|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\s*(\d{4})?$/);
+    if (m) {
+      const tag = parseInt(m[1], 10);
+      const monat = MONATE_NAMEN.indexOf(m[2]);
+      const jahr = m[3] ? parseInt(m[3], 10) : heute.getFullYear();
+      let d = new Date(jahr, monat, tag);
+      if (!m[3] && d < heute) d = new Date(jahr + 1, monat, tag);
+      if (d.getMonth() !== monat) return null;
+      return isoVon(d);
+    }
+    m = t.match(/^(\d{1,2})\.(\d{1,2})\.?(\d{4})?$/);
+    if (m) {
+      const tag = parseInt(m[1], 10), monat = parseInt(m[2], 10) - 1;
+      const jahr = m[3] ? parseInt(m[3], 10) : heute.getFullYear();
+      let d = new Date(jahr, monat, tag);
+      if (!m[3] && d < heute) d = new Date(jahr + 1, monat, tag);
+      if (d.getMonth() !== monat) return null;
+      return isoVon(d);
+    }
+    return null;
+  }
+  function wortZahl(w) {
+    var _a;
+    const zahlen = {
+      ein: 1,
+      einem: 1,
+      einer: 1,
+      zwei: 2,
+      drei: 3,
+      vier: 4,
+      fuenf: 5,
+      sechs: 6,
+      sieben: 7,
+      acht: 8,
+      neun: 9,
+      zehn: 10
+    };
+    if (/^\d+$/.test(w)) return parseInt(w, 10);
+    return (_a = zahlen[w]) != null ? _a : 1;
+  }
+  function kategorieAusText(text, kategorien) {
+    const t = normalisiereWort(text.replace(/^(kategorie|die kategorie ist|das ist)\s*/i, ""));
+    if (!t || /^(kein|keine|ohne)\b/.test(t)) return { treffer: "", kandidaten: [] };
+    const normKats = kategorien.map((k) => ({ original: k, norm: normalisiereWort(k) }));
+    let treffer = normKats.find((k) => k.norm === t);
+    if (treffer) return { treffer: treffer.original, kandidaten: [] };
+    let kandidaten = normKats.filter((k) => k.norm.startsWith(t) || t.startsWith(k.norm));
+    if (kandidaten.length === 1) return { treffer: kandidaten[0].original, kandidaten: [] };
+    if (kandidaten.length > 1) return { treffer: "", kandidaten: kandidaten.slice(0, 3).map((k) => k.original) };
+    const toleranz = (n) => Math.max(1, Math.floor(n / 4));
+    const mitAbstand = normKats.map((k) => ({ k, d: distanz(t, k.norm) })).filter((x) => x.d <= toleranz(Math.max(t.length, x.k.norm.length))).sort((a, b) => a.d - b.d);
+    if (mitAbstand.length === 1 || mitAbstand.length > 1 && mitAbstand[0].d < mitAbstand[1].d) {
+      return { treffer: mitAbstand[0].k.original, kandidaten: [] };
+    }
+    if (mitAbstand.length > 1) return { treffer: "", kandidaten: mitAbstand.slice(0, 3).map((x) => x.k.original) };
+    return { treffer: "", kandidaten: [] };
+  }
+  function dringlichkeitAusText(text, stufen) {
+    const t = normalisiereWort(text);
+    const [hoch, mittel, niedrig] = stufen;
+    if (/^(hoch|dringend|sehr wichtig|wichtig|eilig|sofort)\b/.test(t)) return hoch;
+    if (/^(mittel|normal|mittlere|mittlerer)\b/.test(t)) return mittel;
+    if (/^(niedrig|gering|kann warten|nicht dringend|spaeter|unwichtig)\b/.test(t)) return niedrig;
+    for (const s of stufen) if (normalisiereWort(s) === t) return s;
+    return null;
+  }
+  function verfuegbar() {
+    const w = window;
+    return !!(w.SpeechRecognition || w.webkitSpeechRecognition) && !!window.speechSynthesis;
+  }
+  function hoereZu(sprache) {
+    return new Promise((ok, fehler) => {
+      const w = window;
+      const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+      if (!SR) return fehler(new SprachdialogNichtVerfuegbar());
+      const erkennung = new SR();
+      erkennung.lang = sprache;
+      erkennung.continuous = false;
+      erkennung.interimResults = false;
+      erkennung.maxAlternatives = 1;
+      erkennung.onresult = (ev) => {
+        var _a, _b, _c, _d;
+        const text = (_d = (_c = (_b = (_a = ev.results) == null ? void 0 : _a[0]) == null ? void 0 : _b[0]) == null ? void 0 : _c.transcript) != null ? _d : "";
+        ok(String(text).trim());
+      };
+      erkennung.onerror = (ev) => fehler(new Error(ev.error || "Spracherkennung fehlgeschlagen"));
+      erkennung.onend = () => {
+      };
+      try {
+        erkennung.start();
+      } catch (e) {
+        fehler(e);
+      }
+    });
+  }
+  function sprich(text, sprache) {
+    return new Promise((ok) => {
+      if (!window.speechSynthesis) return ok();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = sprache;
+      u.onend = () => ok();
+      u.onerror = () => ok();
+      window.speechSynthesis.speak(u);
+    });
+  }
+  async function sprachdialogStarten(optionen) {
+    if (!verfuegbar()) throw new SprachdialogNichtVerfuegbar();
+    const sprache = optionen.sprache || "de-AT";
+    const stufen = optionen.dringlichkeitsstufen || ["Hoch", "Mittel", "Niedrig"];
+    const melde = (schritt, text) => {
+      var _a;
+      return (_a = optionen.aufSchritt) == null ? void 0 : _a.call(optionen, schritt, text);
+    };
+    melde("titel", "");
+    const titel = (await hoereZu(sprache)).trim();
+    if (!titel) return null;
+    melde("titel", titel);
+    let zieldatum = "";
+    for (let versuch = 0; versuch < 2; versuch++) {
+      await sprich("Bis wann?", sprache);
+      melde("zieldatum", "");
+      const antwort = await hoereZu(sprache);
+      const erkannt = terminAusText(antwort);
+      if (erkannt !== null) {
+        zieldatum = erkannt;
+        melde("zieldatum", zieldatum || "ohne Termin");
+        break;
+      }
+      if (versuch === 0) await sprich("Das habe ich nicht verstanden. Bis wann, zum Beispiel morgen oder ein Datum?", sprache);
+    }
+    let kategorie = "";
+    if (optionen.kategorien.length) {
+      for (let versuch = 0; versuch < 2; versuch++) {
+        await sprich("Welche Kategorie?", sprache);
+        melde("kategorie", "");
+        const antwort = await hoereZu(sprache);
+        const erg = kategorieAusText(antwort, optionen.kategorien);
+        if (erg.treffer) {
+          kategorie = erg.treffer;
+          melde("kategorie", kategorie);
+          break;
+        }
+        if (erg.kandidaten.length) {
+          melde("kategorieRueckfrage", erg.kandidaten.join(" oder "));
+          await sprich("Meinst du " + erg.kandidaten.join(" oder ") + "?", sprache);
+          const zweite = await hoereZu(sprache);
+          const zweiteErg = kategorieAusText(zweite, erg.kandidaten);
+          if (zweiteErg.treffer) {
+            kategorie = zweiteErg.treffer;
+            melde("kategorie", kategorie);
+            break;
+          }
+        }
+        if (/^(kein|keine|ohne)\b/.test(normalisiereWort(antwort))) break;
+        if (versuch === 1) break;
+      }
+    }
+    let dringlichkeit = stufen[1];
+    await sprich("Wie dringend?", sprache);
+    melde("dringlichkeit", "");
+    const dAntwort = await hoereZu(sprache);
+    const dErkannt = dringlichkeitAusText(dAntwort, stufen);
+    if (dErkannt) {
+      dringlichkeit = dErkannt;
+    }
+    melde("dringlichkeit", dringlichkeit);
+    const zusammenfassung = titel + (zieldatum ? ", bis " + zieldatum : ", ohne Termin") + (kategorie ? ", Kategorie " + kategorie : "") + ", Dringlichkeit " + dringlichkeit;
+    melde("bestaetigung", zusammenfassung);
+    await sprich("Aufgabe: " + zusammenfassung + ". Soll die Aufgabe angelegt werden?", sprache);
+    const bestaetigung = normalisiereWort(await hoereZu(sprache));
+    const ja = /^(ja|jawohl|passt|genau|ok|okay|stimmt)\b/.test(bestaetigung);
+    if (!ja) return null;
+    return { titel, zieldatum, kategorie, dringlichkeit };
+  }
+  return __toCommonJS(B04_C30_Sprachdialog_exports);
+})();
+</script>
+
 <script>
 "use strict";
 
@@ -432,7 +716,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
    Datenschema: siehe P09_Aufgaben.json / Kurzdokumentation
    ========================================================================= */
 
-const VERSION = "V00-10";
+const VERSION = "V00-11";
 const SCHEMA = "P09_ToDo";
 const SCHEMA_VERSION = "1.1";
 const LS_DATEN = "p09_daten";
@@ -820,7 +1104,7 @@ function terminwahl(container, aufAenderung){
     ];
     let html = `<div class="termin-knoepfe">`;
     for(const [name, iso] of schnell){
-      html += `<button type="button" data-setz="${iso}" class="${wert===iso?"gewaehlt":""}">${name}</button>`;
+      html += `<button type="button" data-setz="${iso}" class="${wert==iso?"gewaehlt":""}">${name}</button>`;
     }
     const eigenes = wert && !schnell.some(([,iso]) => iso === wert);
     html += `<button type="button" data-kalender="1" class="${eigenes?"gewaehlt":""}">Datum …</button>`;
@@ -1162,6 +1446,50 @@ function icsBauen(){
   return { text: zeilen.join("\r\n"), anzahl: offen.length };
 }
 
+/* ---------- Gefuehrter Sprachdialog (Baustein B04-C30) ---------- */
+async function sprachdialogAusloesen(){
+  if(typeof B04C30Sprachdialog === "undefined"){ toast("Sprachdialog nicht geladen"); return; }
+  const btn = $("#btnDialog");
+  btn.classList.add("aktiv");
+  try{
+    const ergebnis = await B04C30Sprachdialog.sprachdialogStarten({
+      kategorien: alleKategorien(),
+      dringlichkeitsstufen: daten.wertelisten && daten.wertelisten.dringlichkeit
+        ? daten.wertelisten.dringlichkeit : ["Hoch","Mittel","Niedrig"],
+      sprache: "de-AT",
+      aufSchritt: (schritt, text) => {
+        const meldung = {
+          titel: "Höre zu …",
+          zieldatum: "Bis wann?",
+          kategorie: "Welche Kategorie?",
+          kategorieRueckfrage: "Meinst du: " + text + "?",
+          dringlichkeit: "Wie dringend?",
+          bestaetigung: text
+        };
+        if(schritt !== "kategorieRueckfrage" && text) return; // Zwischenstaende ohne Text nicht anzeigen
+        toast(meldung[schritt] || "");
+      }
+    });
+    if(!ergebnis){ toast("Sprachdialog abgebrochen"); return; }
+    anlegen({
+      titel: ergebnis.titel,
+      dringlichkeit: ergebnis.dringlichkeit,
+      zieldatum: ergebnis.zieldatum,
+      kategorie: ergebnis.kategorie,
+      quelle: "Sprache"
+    });
+    if(kategorieFilter && kategorieFilter !== ergebnis.kategorie) { /* Filter unveraendert lassen */ }
+    zeichne();
+    toast("Aufgabe angelegt");
+    autoSync();
+  }catch(e){
+    if(e && e.name === "SprachdialogNichtVerfuegbar") toast("Sprachdialog in diesem Browser nicht verfügbar");
+    else toast("Sprachdialog fehlgeschlagen");
+  }finally{
+    btn.classList.remove("aktiv");
+  }
+}
+
 /* ---------- Ereignisse ---------- */
 function bindeEreignisse(){
 
@@ -1183,6 +1511,11 @@ function bindeEreignisse(){
     diktatAktiv ? diktatStop() : diktatStart();
   });
   if(!diktatVerfuegbar()) $("#btnMic").title = "Diktat in diesem Browser nicht verfügbar";
+
+  $("#btnDialog").addEventListener("click", () => sprachdialogAusloesen());
+  if(!(typeof B04C30Sprachdialog !== "undefined" && diktatVerfuegbar() && window.speechSynthesis)){
+    $("#btnDialog").title = "Sprachdialog in diesem Browser nicht verfügbar";
+  }
 
   $("#btnMehr").addEventListener("click", () => {
     detailsZeigen(!$("#details").classList.contains("offen"));
@@ -1376,7 +1709,7 @@ function dialogEdit(id){
   $("#eKat").value = a.kategorie || "";
   $("#eLink").value = a.link || "";
   $("#eNotiz").value = a.notiz || "";
-  $("#ePruef").value = (a.pruefstatus === "Bitte pruefen") ? "Bitte prüfen" : (a.pruefstatus || "Sicher");
+  $("#ePruef").value = (a.pruefstatus === "Bitte pruefen") ? "Bitte prufen" : (a.pruefstatus || "Sicher");
   $("#dlgEdit").showModal();
 }
 
