@@ -431,7 +431,7 @@ code{font-family:Consolas,monospace;font-size:13.5px;background:var(--bg);paddin
   <div class="dlg-fuss"><button class="btn prim" id="mSchliessen">Schließen</button></div>
 </dialog>
 
-<!-- Baustein B04-C30_Sprachdialog (Bibliothek, Fassung V01-00) — gefuehrter Sprachdialog per Sprachausgabe/-erkennung -->
+<!-- Baustein B04-C30_Sprachdialog (Bibliothek, Fassung V01-01) — gefuehrter Sprachdialog per Sprachausgabe/-erkennung -->
 <script>
 "use strict";
 var B04C30Sprachdialog = (() => {
@@ -630,6 +630,7 @@ var B04C30Sprachdialog = (() => {
       if (!window.speechSynthesis) return ok();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = sprache;
+      u.volume = 1;
       u.onend = () => ok();
       u.onerror = () => ok();
       window.speechSynthesis.speak(u);
@@ -647,6 +648,15 @@ var B04C30Sprachdialog = (() => {
     const titel = (await hoereZu(sprache)).trim();
     if (!titel) return null;
     melde("titel", titel);
+    let dringlichkeit = stufen[1];
+    await sprich("Dringlichkeit?", sprache);
+    melde("dringlichkeit", "");
+    const dAntwort = await hoereZu(sprache);
+    const dErkannt = dringlichkeitAusText(dAntwort, stufen);
+    if (dErkannt) {
+      dringlichkeit = dErkannt;
+    }
+    melde("dringlichkeit", dringlichkeit);
     let zieldatum = "";
     for (let versuch = 0; versuch < 2; versuch++) {
       await sprich("Bis wann?", sprache);
@@ -658,12 +668,12 @@ var B04C30Sprachdialog = (() => {
         melde("zieldatum", zieldatum || "ohne Termin");
         break;
       }
-      if (versuch === 0) await sprich("Das habe ich nicht verstanden. Bis wann, zum Beispiel morgen oder ein Datum?", sprache);
+      if (versuch === 0) await sprich("Nicht verstanden. Bis wann?", sprache);
     }
     let kategorie = "";
     if (optionen.kategorien.length) {
       for (let versuch = 0; versuch < 2; versuch++) {
-        await sprich("Welche Kategorie?", sprache);
+        await sprich("Kategorie?", sprache);
         melde("kategorie", "");
         const antwort = await hoereZu(sprache);
         const erg = kategorieAusText(antwort, optionen.kategorien);
@@ -674,7 +684,7 @@ var B04C30Sprachdialog = (() => {
         }
         if (erg.kandidaten.length) {
           melde("kategorieRueckfrage", erg.kandidaten.join(" oder "));
-          await sprich("Meinst du " + erg.kandidaten.join(" oder ") + "?", sprache);
+          await sprich(erg.kandidaten.join(" oder ") + "?", sprache);
           const zweite = await hoereZu(sprache);
           const zweiteErg = kategorieAusText(zweite, erg.kandidaten);
           if (zweiteErg.treffer) {
@@ -687,18 +697,8 @@ var B04C30Sprachdialog = (() => {
         if (versuch === 1) break;
       }
     }
-    let dringlichkeit = stufen[1];
-    await sprich("Wie dringend?", sprache);
-    melde("dringlichkeit", "");
-    const dAntwort = await hoereZu(sprache);
-    const dErkannt = dringlichkeitAusText(dAntwort, stufen);
-    if (dErkannt) {
-      dringlichkeit = dErkannt;
-    }
-    melde("dringlichkeit", dringlichkeit);
-    const zusammenfassung = titel + (zieldatum ? ", bis " + zieldatum : ", ohne Termin") + (kategorie ? ", Kategorie " + kategorie : "") + ", Dringlichkeit " + dringlichkeit;
-    melde("bestaetigung", zusammenfassung);
-    await sprich("Aufgabe: " + zusammenfassung + ". Soll die Aufgabe angelegt werden?", sprache);
+    melde("bestaetigung", titel);
+    await sprich(titel + " anlegen?", sprache);
     const bestaetigung = normalisiereWort(await hoereZu(sprache));
     const ja = /^(ja|jawohl|passt|genau|ok|okay|stimmt)\b/.test(bestaetigung);
     if (!ja) return null;
@@ -716,7 +716,7 @@ var B04C30Sprachdialog = (() => {
    Datenschema: siehe P09_Aufgaben.json / Kurzdokumentation
    ========================================================================= */
 
-const VERSION = "V00-11";
+const VERSION = "V00-12";
 const SCHEMA = "P09_ToDo";
 const SCHEMA_VERSION = "1.1";
 const LS_DATEN = "p09_daten";
